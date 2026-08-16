@@ -51,7 +51,7 @@ export default function Header() {
           </button>
 
           {/* Cart with badge */}
-          <button aria-label="Cart" className="relative">
+          <Link href="/cart" aria-label="Cart" className="relative">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M6 6h15l-1.5 9h-12z" />
               <path d="M6 6l-1-3H2" />
@@ -63,7 +63,7 @@ export default function Header() {
                 {totalItems}
               </span>
             )}
-          </button>
+          </Link>
         </div>
       </div>
     </header>
