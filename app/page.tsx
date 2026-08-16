@@ -2,6 +2,7 @@ import Header from "./components/Header";
 import Hero from "./components/Hero";
 import Categories from "./components/Categories";
 import NewArrivals from "./components/NewArrivals";
+import Footer from "./components/Footer";
 
 export default function Home() {
   return (
@@ -13,6 +14,7 @@ export default function Home() {
       </main>
       <Categories />
       <NewArrivals />
+      <Footer />
     </div>
     
   );
