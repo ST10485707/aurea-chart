@@ -1,7 +1,9 @@
+"use client";
 import Link from "next/link";
+import { useCart } from "../context/CartContext";
 
 export default function Header() {
-  const cartCount = 0; // temporary placeholder — will connect to real cart later
+  const { totalItems } = useCart();
 
   return (
     <header className="w-full border-b border-[var(--color-beige)] bg-[var(--color-cream)]">
@@ -56,9 +58,9 @@ export default function Header() {
               <circle cx="9" cy="20" r="1" />
               <circle cx="18" cy="20" r="1" />
             </svg>
-            {cartCount > 0 && (
+            {totalItems > 0 && (
               <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-gold)] text-[10px] text-[var(--color-cream)]">
-                {cartCount}
+                {totalItems}
               </span>
             )}
           </button>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import { useCart } from "../../context/CartContext";
 
 // Temporary placeholder data — will come from the database later
 const product = {
@@ -32,6 +33,7 @@ const product = {
 };
 
 export default function ProductPage() {
+  const { addItem } = useCart();
   const [selectedColor, setSelectedColor] = useState(product.colors[0].name);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -159,9 +161,20 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* Add to bag */}
+           {/* Add to bag */}
             <button
               disabled={!selectedSize || isOutOfStock}
+              onClick={() => {
+                if (!selectedSize) return;
+                addItem({
+                  productId: 1, // temporary — will use the real product ID later
+                  name: product.name,
+                  price: product.price,
+                  color: selectedColor,
+                  size: selectedSize,
+                  quantity,
+                });
+              }}
               className={`mt-8 w-full rounded-full py-3 text-sm tracking-wide transition ${
                 !selectedSize || isOutOfStock
                   ? "bg-[var(--color-beige)] text-[var(--color-coffee)]/50 cursor-not-allowed"

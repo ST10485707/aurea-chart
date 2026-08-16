@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Jost, Inter } from "next/font/google";
 import "./globals.css";
+import { CartProvider } from "./context/CartContext";
 
 const jost = Jost({
   variable: "--font-jost",
@@ -24,7 +25,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${jost.variable} ${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <CartProvider>{children}</CartProvider>
+      </body>
     </html>
   );
 }
