@@ -1,46 +1,135 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import { useCart } from "../../context/CartContext";
+import { supabase } from "../../lib/supabase";
 
-// Temporary placeholder data — will come from the database later
-const product = {
-  name: "Oversized Tracksuit",
-  price: 799,
-  badge: "NEW",
-  description:
-    "A relaxed-fit tracksuit in soft brushed fabric. Designed for everyday comfort without losing shape.",
-  colors: [
-    { name: "Black", hex: "#2B2B2B" },
-    { name: "Cream", hex: "#F0E4D3" },
-    { name: "Coffee", hex: "#5B4636" },
-  ],
-  sizes: ["S", "M", "L", "XL", "XXL"],
-  // stock per color+size combination
-  stock: {
-    "Black-S": 4,
-    "Black-M": 0,
-    "Black-L": 6,
-    "Cream-S": 2,
-    "Cream-M": 5,
-    "Cream-L": 0,
-    "Coffee-S": 3,
-    "Coffee-M": 3,
-    "Coffee-L": 3,
-  } as Record<string, number>,
+type Variant = {
+  id: number;
+  color: string;
+  size: string;
+  stock: number;
+};
+
+type ProductImage = {
+  image_url: string;
+  color: string | null;
+};
+
+// Maps colour names to actual swatch colours.
+// The displayed label always comes from the database — this only controls the swatch dot.
+const colorSwatchMap: Record<string, string> = {
+  Brown: "#4A2E1E",
+  Cream: "#F5EFE0",
+  Green: "#3F5B3E",
+  Orange: "#D6752B",
+  Charcoal: "#3A3A3A",
+  Grey: "#8C8C8C",
+  Black: "#1A1A1A",
+  Navy: "#1F2A44",
+  Mint: "#A8CBB7",
+};
+
+function getSwatchColor(colorName: string) {
+  return colorSwatchMap[colorName] || colorName.toLowerCase();
+}
+type Product = {
+  id: number;
+  name: string;
+  price: number;
+  description: string;
+  is_new: boolean;
+  is_bestseller: boolean;
+  product_variants: Variant[];
+  product_images: ProductImage[];
 };
 
 export default function ProductPage() {
+  const params = useParams();
+  const productId = Number(params.id);
+
   const { addItem } = useCart();
-  const [selectedColor, setSelectedColor] = useState(product.colors[0].name);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
 
-  const stockKey = `${selectedColor}-${selectedSize}`;
-  const availableStock = selectedSize ? product.stock[stockKey] ?? 0 : null;
-  const isOutOfStock = selectedSize !== null && availableStock === 0;
+  useEffect(() => {
+    async function fetchProduct() {
+      const { data, error } = await supabase
+        .from("products")
+        .select(
+          "id, name, price, description, is_new, is_bestseller, product_variants(id, color, size, stock), product_images(image_url, color)"
+        )
+        .eq("id", productId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching product:", error);
+      } else if (data) {
+        setProduct(data);
+        // Auto-select the first available colour
+        const firstColor = data.product_variants?.[0]?.color;
+        if (firstColor) setSelectedColor(firstColor);
+      }
+      setLoading(false);
+    }
+
+    if (productId) fetchProduct();
+  }, [productId]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <p className="text-[var(--color-coffee)]">Loading product...</p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <p className="text-[var(--color-coffee)]">Product not found.</p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Unique colours available for this product
+  const colors = Array.from(
+    new Set(product.product_variants.map((v) => v.color))
+  );
+
+  // Unique sizes available for this product
+  const sizes = Array.from(
+    new Set(product.product_variants.map((v) => v.size))
+  );
+
+  // Find stock for the currently selected colour+size
+  const selectedVariant = product.product_variants.find(
+    (v) => v.color === selectedColor && v.size === selectedSize
+  );
+  const availableStock = selectedVariant?.stock ?? null;
+  const isOutOfStock = selectedSize !== null && (availableStock ?? 0) === 0;
+
+  // Pick the right image: colour-specific first, otherwise the general one
+  const displayImage =
+    product.product_images.find((img) => img.color === selectedColor)
+      ?.image_url ||
+    product.product_images.find((img) => !img.color)?.image_url ||
+    product.product_images[0]?.image_url;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -48,14 +137,28 @@ export default function ProductPage() {
 
       <main className="flex-1">
         <div className="mx-auto max-w-6xl px-4 py-10 md:px-8 grid md:grid-cols-2 gap-10">
-          {/* Image placeholder */}
-          <div className="aspect-[3/4] w-full rounded-lg bg-[var(--color-gold-soft)]/40" />
+          {/* Image */}
+          <div className="aspect-[3/4] w-full rounded-lg bg-[var(--color-gold-soft)]/40 overflow-hidden">
+            {displayImage && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={displayImage}
+                alt={product.name}
+                className="h-full w-full object-cover"
+              />
+            )}
+          </div>
 
           {/* Product details */}
           <div>
-            {product.badge && (
+            {product.is_new && (
               <span className="inline-block mb-3 rounded-full bg-[var(--color-coffee-dark)] px-3 py-1 text-[10px] tracking-wide text-[var(--color-cream)]">
-                {product.badge}
+                NEW
+              </span>
+            )}
+            {product.is_bestseller && (
+              <span className="inline-block mb-3 rounded-full bg-[var(--color-coffee-dark)] px-3 py-1 text-[10px] tracking-wide text-[var(--color-cream)]">
+                BESTSELLER
               </span>
             )}
 
@@ -70,61 +173,69 @@ export default function ProductPage() {
               R{product.price}
             </p>
 
-            <p className="mt-4 text-sm text-[var(--color-coffee)] leading-relaxed">
-              {product.description}
-            </p>
-
-            {/* Color selection */}
-            <div className="mt-8">
-              <p className="text-sm text-[var(--color-coffee-dark)] mb-3">
-                Colour: {selectedColor}
+            {product.description && (
+              <p className="mt-4 text-sm text-[var(--color-coffee)] leading-relaxed">
+                {product.description}
               </p>
-              <div className="flex gap-3">
-                {product.colors.map((color) => (
-                  <button
-                    key={color.name}
-                    onClick={() => {
-                      setSelectedColor(color.name);
-                      setSelectedSize(null);
-                    }}
-                    aria-label={color.name}
-                    className={`h-8 w-8 rounded-full border-2 transition ${
-                      selectedColor === color.name
-                        ? "border-[var(--color-gold)]"
-                        : "border-transparent"
-                    }`}
-                    style={{ backgroundColor: color.hex }}
-                  />
-                ))}
+            )}
+
+            {/* Colour selection */}
+            {colors.length > 0 && (
+              <div className="mt-8">
+                <p className="text-sm text-[var(--color-coffee-dark)] mb-3">
+                  Colour: {selectedColor}
+                </p>
+                <div className="flex gap-3">
+                  {colors.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => {
+                        setSelectedColor(color);
+                        setSelectedSize(null);
+                      }}
+                      aria-label={color}
+                      className={`h-8 w-8 rounded-full border-2 transition ${
+                        selectedColor === color
+                          ? "border-[var(--color-gold)]"
+                          : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: getSwatchColor(color) }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Size selection */}
-            <div className="mt-6">
-              <p className="text-sm text-[var(--color-coffee-dark)] mb-3">Size</p>
-              <div className="flex flex-wrap gap-2">
-                {product.sizes.map((size) => {
-                  const key = `${selectedColor}-${size}`;
-                  const outOfStock = (product.stock[key] ?? 0) === 0;
-                  return (
-                    <button
-                      key={size}
-                      disabled={outOfStock}
-                      onClick={() => setSelectedSize(size)}
-                      className={`h-10 min-w-10 px-3 rounded border text-sm transition ${
-                        selectedSize === size
-                          ? "border-[var(--color-coffee-dark)] bg-[var(--color-coffee-dark)] text-[var(--color-cream)]"
-                          : outOfStock
-                          ? "border-[var(--color-beige)] text-[var(--color-coffee)]/30 line-through cursor-not-allowed"
-                          : "border-[var(--color-beige)] text-[var(--color-coffee-dark)] hover:border-[var(--color-coffee)]"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
+            {sizes.length > 0 && (
+              <div className="mt-6">
+                <p className="text-sm text-[var(--color-coffee-dark)] mb-3">Size</p>
+                <div className="flex flex-wrap gap-2">
+                  {sizes.map((size) => {
+                    const variant = product.product_variants.find(
+                      (v) => v.color === selectedColor && v.size === size
+                    );
+                    const outOfStock = (variant?.stock ?? 0) === 0;
+                    return (
+                      <button
+                        key={size}
+                        disabled={outOfStock}
+                        onClick={() => setSelectedSize(size)}
+                        className={`h-10 min-w-10 px-3 rounded border text-sm transition ${
+                          selectedSize === size
+                            ? "border-[var(--color-coffee-dark)] bg-[var(--color-coffee-dark)] text-[var(--color-cream)]"
+                            : outOfStock
+                            ? "border-[var(--color-beige)] text-[var(--color-coffee)]/30 line-through cursor-not-allowed"
+                            : "border-[var(--color-beige)] text-[var(--color-coffee-dark)] hover:border-[var(--color-coffee)]"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Stock status */}
             {selectedSize && (
@@ -161,13 +272,13 @@ export default function ProductPage() {
               </div>
             </div>
 
-           {/* Add to bag */}
+            {/* Add to bag */}
             <button
               disabled={!selectedSize || isOutOfStock}
               onClick={() => {
-                if (!selectedSize) return;
+                if (!selectedSize || !selectedColor) return;
                 addItem({
-                  productId: 1, // temporary — will use the real product ID later
+                  productId: product.id,
                   name: product.name,
                   price: product.price,
                   color: selectedColor,
